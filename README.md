@@ -1,4 +1,4 @@
-# BASIC DSL
+# BASIC DSL for Rust 🦀
 
 A Rust procedural macro crate that provides a BASIC interpreter embedded as a domain-specific language.
 

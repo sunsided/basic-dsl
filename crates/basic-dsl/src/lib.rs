@@ -12,21 +12,35 @@ A procedural macro crate that provides a BASIC interpreter DSL embedded in Rust.
 use basic_dsl::basic;
 
 basic!(r#"
-    10 LET X = 1
-    20 PRINT X
-    30 IF X < 5 THEN GOTO 50
-    40 END
-    50 LET X = X + 1
-    60 GOTO 20
+    10 FOR I = 1 TO 5
+    20 PRINT I
+    30 NEXT I
+    40 PRINT "DONE"
+    50 END
 "#);
 ```
 
-The macro supports:
-- Variable assignment with `LET`
-- Printing with `PRINT` (numbers and string literals)
-- Conditional jumps with `IF...THEN GOTO`
-- Unconditional jumps with `GOTO`
-- Line labels and program termination with `END`
+The macro supports classic BASIC programming constructs:
+
+### Control Flow
+- **FOR...NEXT loops**: `FOR variable = start TO end [STEP increment]` and `NEXT [variable]`
+- **Conditional jumps**: `IF condition THEN GOTO line`
+- **Unconditional jumps**: `GOTO line`
+- **Program termination**: `END`
+
+### Variables and Expressions
+- **Variable assignment**: `LET variable = expression`
+- **Arithmetic**: `+`, `-`, `*`, `/`
+- **Comparisons**: `<`, `<=`, `=`, `>=`, `>`
+- **Numbers and string literals**: `42`, `"Hello World"`
+
+### Input/Output
+- **Printing**: `PRINT expression` (numbers and strings)
+
+### Advanced Features
+- **Nested loops**: Full support for nested FOR...NEXT constructs
+- **Expression evaluation**: Complex arithmetic and string handling
+- **Runtime error checking**: Proper error handling for invalid operations
 */
 
 mod ast;

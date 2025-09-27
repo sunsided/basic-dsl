@@ -31,13 +31,17 @@ pub fn generate_runtime_code(
 
         enum Atom { Imm(i64), Str(&'static str), Var(usize), Bin(Bin) }
 
-        enum Op { End, Print(usize), Let(usize,usize), Goto(usize), IfCmp(usize,usize,Cmp,usize) }
+        enum Op { End, Print(usize), Let(usize,usize), Goto(usize), IfCmp(usize,usize,Cmp,usize), For(usize,usize,usize,usize), Next(Option<usize>) }
+
+        #[derive(Clone)]
+        struct LoopState { var: usize, end: usize, step: usize, start_pc: usize }
 
         static EXPRS: &[&[Atom]] = &[ #(#pool_ts),* ];
         static CODE: &[Op] = &[ #(#code_ts),* ];
         static VARS: &[&str] = &[ #(#var_name_lits),* ];
 
         let mut vars = vec![Value::Num(0); VARS.len()];
+        let mut loop_stack: Vec<LoopState> = Vec::new();
 
         fn eval(ix: usize, vars: &mut [Value]) -> Value {
             let mut st: Vec<Value> = Vec::new();
@@ -120,6 +124,54 @@ pub fn generate_runtime_code(
                     };
                     pc = if cond { to } else { pc + 1 };
                 }
+                Op::For(var, start_e, end_e, step_e) => {
+                    let start_val = eval(start_e, &mut vars);
+                    let end_val = eval(end_e, &mut vars);
+                    let step_val = eval(step_e, &mut vars);
+                    
+                    let (start_num, end_num, step_num) = match (start_val, end_val, step_val) {
+                        (Value::Num(s), Value::Num(e), Value::Num(st)) => (s, e, st),
+                        _ => panic!("FOR loop bounds must be numbers"),
+                    };
+                    
+                    vars[var] = Value::Num(start_num);
+                    loop_stack.push(LoopState {
+                        var: var,
+                        end: end_num as usize,
+                        step: step_num as usize, 
+                        start_pc: pc + 1,
+                    });
+                    pc += 1;
+                }
+                Op::Next(expected_var) => {
+                    if let Some(loop_state) = loop_stack.last() {
+                        // Verify variable name if provided
+                        if let Some(exp_var) = expected_var {
+                            if loop_state.var != exp_var {
+                                panic!("NEXT variable mismatch");
+                            }
+                        }
+                        
+                        // Increment loop variable
+                        let current_val = match &vars[loop_state.var] {
+                            Value::Num(n) => *n,
+                            _ => panic!("Loop variable must be numeric"),
+                        };
+                        
+                        let new_val = current_val + loop_state.step as i64;
+                        vars[loop_state.var] = Value::Num(new_val);
+                        
+                        // Check if loop should continue
+                        if new_val <= loop_state.end as i64 {
+                            pc = loop_state.start_pc; // Jump back to loop body
+                        } else {
+                            loop_stack.pop(); // Exit loop
+                            pc += 1;
+                        }
+                    } else {
+                        panic!("NEXT without FOR");
+                    }
+                }
             }
         }
     }))
@@ -191,6 +243,28 @@ fn generate_bytecode(
                     src.span(),
                 );
                 code_ts.push(quote!( Op::IfCmp(#l, #r, Cmp::#cmp_ident, #to) ));
+            }
+            Stmt::For { var, start, end, step } => {
+                let vi = intern_var(vars, var);
+                let start_e = encode_expr(start, pool, vars);
+                let end_e = encode_expr(end, pool, vars);
+                let step_e = if let Some(s) = step {
+                    encode_expr(s, pool, vars)
+                } else {
+                    // Default step of 1
+                    let step_atoms = vec![Atom::Imm(1)];
+                    pool.push(step_atoms);
+                    pool.len() - 1
+                };
+                code_ts.push(quote!( Op::For(#vi, #start_e, #end_e, #step_e) ));
+            }
+            Stmt::Next(var_name) => {
+                if let Some(v) = var_name {
+                    let var_idx = intern_var(vars, v);
+                    code_ts.push(quote!( Op::Next(Some(#var_idx)) ));
+                } else {
+                    code_ts.push(quote!( Op::Next(None) ));
+                }
             }
         }
     }

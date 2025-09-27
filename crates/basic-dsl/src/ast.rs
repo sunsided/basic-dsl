@@ -15,6 +15,13 @@ pub enum Stmt {
         rhs: Expr,
         target: i32,
     },
+    For {
+        var: String,
+        start: Expr,
+        end: Expr,
+        step: Option<Expr>,
+    },
+    Next(Option<String>),
     End,
 }
 

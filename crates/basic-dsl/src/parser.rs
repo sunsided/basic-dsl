@@ -79,6 +79,40 @@ pub fn parse_basic_program(code: &str, src: &syn::LitStr) -> Result<Vec<Stmt>> {
             continue;
         }
 
+        if kw == "FOR" {
+            w.remove(0);
+            let var = w.remove(0);
+            expect(&mut w, "=")?;
+            let start = parse_expr(&mut w)?;
+            if up(&w.remove(0)) != "TO" {
+                return Err(err(src, "expected TO"));
+            }
+            let end = parse_expr(&mut w)?;
+            
+            let step = if !w.is_empty() && up(&w[0]) == "STEP" {
+                w.remove(0);
+                Some(parse_expr(&mut w)?)
+            } else {
+                None
+            };
+            
+            expect_eol(w)?;
+            stmts.push(Stmt::For { var, start, end, step });
+            continue;
+        }
+
+        if kw == "NEXT" {
+            w.remove(0);
+            let var = if w.is_empty() {
+                None
+            } else {
+                Some(w.remove(0))
+            };
+            expect_eol(w)?;
+            stmts.push(Stmt::Next(var));
+            continue;
+        }
+
         if kw == "END" {
             expect_eol(w.split_off(1))?;
             stmts.push(Stmt::End);

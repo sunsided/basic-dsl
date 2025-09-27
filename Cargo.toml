@@ -10,7 +10,7 @@ default-members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.1"
+version = "0.2.0-alpha"
 edition = "2024"
 license = "EUPL-1.2"
 authors = ["The BASIC DSL Contributors"]

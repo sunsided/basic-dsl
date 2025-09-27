@@ -1,0 +1,28 @@
+[workspace]
+members = [
+    "crates/*",
+    "examples/*",
+]
+default-members = [
+    "crates/*",
+    "examples/*",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "EUPL-1.2"
+authors = ["The BASIC DSL Contributors"]
+homepage = "https://github.com/sunsided/basic-dsl"
+repository = "https://github.com/sunsided/basic-dsl"
+description = "A Rust procedural macro crate that provides a BASIC interpreter embedded as a domain-specific language"
+keywords = ["basic", "dsl", "interpreter", "macro", "embedded"]
+categories = ["development-tools", "parser-implementations"]
+
+[workspace.dependencies]
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = {version = "1.0", features = ["span-locations", "proc-macro"] }
+basic-dsl = { path = "crates/basic-dsl" }
+trybuild = "1.0.111"

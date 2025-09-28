@@ -71,7 +71,7 @@ basic! {
     10 PRINT "Name", "Age", "Score"    // Tab-separated columns
     20 PRINT "Alice", 25, 95           // Comma creates tab stops  
     30 PRINT "Bob", 30, 87             // For columnar output
-    40 PRINT                          // Empty PRINT = newline
+    40 PRINT                           // Empty PRINT = newline
     50 END
 }
 ```

@@ -1,0 +1,13 @@
+[package]
+name = "print-demo"
+version = "0.2.0-alpha"
+edition = "2021"
+authors = ["Markus Mayer <widemeadows@gmail.com>"]
+license = "EUPL-1.2"
+
+[[bin]]
+name = "print-demo"
+path = "src/main.rs"
+
+[dependencies]
+basic-dsl = { path = "../../crates/basic-dsl" }

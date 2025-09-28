@@ -44,7 +44,7 @@ The DSL supports classic BASIC syntax with modern IDE integration:
 
 ### Statements
 - `LET variable = expression` - Variable assignment
-- `PRINT expression` - Output values or strings
+- `PRINT [expression, ...]` - Output values or strings (supports multiple comma-separated expressions or empty for newline)
 - `GOTO label` - Jump to line number
 - `IF condition THEN GOTO label` - Conditional jump  
 - `FOR variable = start TO end [STEP increment]` - Loop initialization
@@ -64,6 +64,18 @@ The DSL supports classic BASIC syntax with modern IDE integration:
 - Nested FOR loops and complex expressions are fully supported
 
 ## Examples
+
+### Enhanced PRINT Statement
+```rust
+basic! {
+    10 LET X = 42
+    20 PRINT "The answer is", X
+    30 PRINT "Multiple", "values", 123, "work!"
+    40 PRINT
+    50 PRINT "Empty PRINT above creates newline"
+    60 END
+}
+```
 
 ### RustBasic FizzBuzz
 ```rust
@@ -96,6 +108,9 @@ cargo run --bin basic
 
 # Run comprehensive feature tests  
 cargo run --bin test-features
+
+# Run enhanced PRINT statement demo
+cargo run --bin print-demo
 ```
 
 ## License

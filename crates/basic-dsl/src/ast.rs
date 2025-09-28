@@ -7,7 +7,7 @@
 pub enum Stmt {
     Label(i32),
     Let(String, Expr),
-    Print(Expr),
+    Print(Vec<Expr>),
     Goto(i32),
     IfGoto {
         lhs: Expr,

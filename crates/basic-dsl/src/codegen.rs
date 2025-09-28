@@ -31,7 +31,7 @@ pub fn generate_runtime_code(
 
         enum Atom { Imm(i64), Str(&'static str), Var(usize), Bin(Bin) }
 
-        enum Op { End, Print(usize), Let(usize,usize), Goto(usize), IfCmp(usize,usize,Cmp,usize), For(usize,usize,usize,usize), Next(Option<usize>) }
+        enum Op { End, Print(&'static [usize]), Let(usize,usize), Goto(usize), IfCmp(usize,usize,Cmp,usize), For(usize,usize,usize,usize), Next(Option<usize>) }
 
         #[derive(Clone)]
         struct LoopState { var: usize, end: usize, step: usize, start_pc: usize }
@@ -93,11 +93,20 @@ pub fn generate_runtime_code(
         while pc < CODE.len() {
             match CODE[pc] {
                 Op::End => break,
-                Op::Print(e) => {
-                    let v = eval(e, &mut vars);
-                    match v {
-                        Value::Num(n) => println!("{}", n),
-                        Value::Str(s) => println!("{}", s),
+                Op::Print(exprs) => {
+                    if exprs.is_empty() {
+                        // Empty PRINT statement - just print a newline
+                        println!();
+                    } else {
+                        // Print all expressions separated by spaces
+                        let values: Vec<String> = exprs.iter().map(|&e| {
+                            let v = eval(e, &mut vars);
+                            match v {
+                                Value::Num(n) => n.to_string(),
+                                Value::Str(s) => s,
+                            }
+                        }).collect();
+                        println!("{}", values.join(" "));
                     }
                     pc += 1;
                 }
@@ -206,9 +215,11 @@ fn generate_bytecode(
         match s {
             Stmt::Label(_) => {}
             Stmt::End => code_ts.push(quote!(Op::End)),
-            Stmt::Print(e) => {
-                let x = encode_expr(e, pool, vars);
-                code_ts.push(quote!( Op::Print(#x) ));
+            Stmt::Print(exprs) => {
+                let expr_indices: Vec<usize> = exprs.iter()
+                    .map(|e| encode_expr(e, pool, vars))
+                    .collect();
+                code_ts.push(quote!( Op::Print(&[#(#expr_indices),*]) ));
             }
             Stmt::Let(v, e) => {
                 let vi = intern_var(vars, v);

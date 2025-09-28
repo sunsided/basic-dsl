@@ -69,7 +69,7 @@ impl Parse for BasicLine {
 /// Represents a BASIC statement without line number
 enum BasicStatement {
     Let { var: String, expr: BasicExpr },
-    Print(BasicExpr),
+    Print(Vec<BasicExpr>),
     Goto(i32),
     IfGoto { lhs: BasicExpr, op: Cmp, rhs: BasicExpr, target: i32 },
     For { var: String, start: BasicExpr, end: BasicExpr, step: Option<BasicExpr> },
@@ -81,7 +81,7 @@ impl BasicStatement {
     fn into_ast(self) -> Stmt {
         match self {
             BasicStatement::Let { var, expr } => Stmt::Let(var, expr.into_ast()),
-            BasicStatement::Print(expr) => Stmt::Print(expr.into_ast()),
+            BasicStatement::Print(exprs) => Stmt::Print(exprs.into_iter().map(|e| e.into_ast()).collect()),
             BasicStatement::Goto(target) => Stmt::Goto(target),
             BasicStatement::IfGoto { lhs, op, rhs, target } => {
                 Stmt::IfGoto { lhs: lhs.into_ast(), op, rhs: rhs.into_ast(), target }
@@ -113,8 +113,21 @@ impl Parse for BasicStatement {
                 Ok(BasicStatement::Let { var: var.to_string(), expr })
             },
             "PRINT" => {
-                let expr = input.parse()?;
-                Ok(BasicStatement::Print(expr))
+                let mut expressions = Vec::new();
+                
+                // Check if there are any expressions after PRINT
+                if !input.is_empty() {
+                    // Parse first expression
+                    expressions.push(parse_basic_expr_no_comparison(input)?);
+                    
+                    // Parse additional comma-separated expressions
+                    while input.peek(Token![,]) {
+                        input.parse::<Token![,]>()?; // consume comma
+                        expressions.push(parse_basic_expr_no_comparison(input)?);
+                    }
+                }
+                
+                Ok(BasicStatement::Print(expressions))
             },
             "GOTO" => {
                 let target: LitInt = input.parse()?;

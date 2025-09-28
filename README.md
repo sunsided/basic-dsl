@@ -5,7 +5,7 @@ A Rust procedural macro crate that provides a BASIC interpreter embedded as a do
 ## Features
 
 - **Variables**: Assignment with `LET` and arithmetic expressions
-- **Output**: `PRINT` statements for numbers and string literals  
+- **Input/Output**: `INPUT` for reading user input and `PRINT` statements with flexible formatting
 - **Control Flow**: `IF...THEN GOTO` conditionals and `GOTO` jumps
 - **Loops**: `FOR...NEXT` loops with optional `STEP` increment
 - **Program Structure**: Line numbers, labels, and `END` termination
@@ -44,7 +44,8 @@ The DSL supports classic BASIC syntax with modern IDE integration:
 
 ### Statements
 - `LET variable = expression` - Variable assignment
-- `PRINT [expression, ...]` - Output values or strings (comma creates tab stops for columnar formatting, or empty for newline)
+- `PRINT [expression, ...]` - Output values or strings (comma creates tab stops for columnar formatting, semicolon concatenates, or empty for newline)
+- `INPUT [prompt,] variable` - Read user input from stdin into variable (auto-detects numbers vs strings)
 - `GOTO label` - Jump to line number
 - `IF condition THEN GOTO label` - Conditional jump  
 - `FOR variable = start TO end [STEP increment]` - Loop initialization
@@ -71,8 +72,22 @@ basic! {
     10 PRINT "Name", "Age", "Score"    // Tab-separated columns
     20 PRINT "Alice", 25, 95           // Comma creates tab stops  
     30 PRINT "Bob", 30, 87             // For columnar output
-    40 PRINT                           // Empty PRINT = newline
-    50 END
+    40 PRINT "Concat:"; "A"; "B"       // Semicolon concatenates
+    50 PRINT                           // Empty PRINT = newline
+    60 END
+}
+```
+
+### Interactive INPUT
+```rust
+basic! {
+    10 PRINT "Number Guessing Game"
+    20 INPUT "Enter your guess", GUESS
+    30 IF GUESS = 42 THEN GOTO 60
+    40 PRINT "Wrong! The answer was 42"
+    50 GOTO 70
+    60 PRINT "Correct! You got it!"
+    70 END
 }
 ```
 
@@ -102,7 +117,7 @@ basic! {
 This repository includes example programs that you can run:
 
 ```bash
-# Run the RustBasic FizzBuzz example
+# Run the RustBasic FitzBuzz example
 cargo run --bin basic
 
 # Run comprehensive feature tests  
@@ -110,6 +125,12 @@ cargo run --bin test-features
 
 # Run enhanced PRINT statement demo
 cargo run --bin print-demo
+
+# Test INPUT functionality with various scenarios
+cargo run --bin input-test
+
+# Play the interactive number guessing game
+cargo run --bin number-guessing-game
 ```
 
 ## License

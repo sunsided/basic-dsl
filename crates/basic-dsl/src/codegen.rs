@@ -45,7 +45,7 @@ pub fn generate_runtime_code(
         #[derive(Clone, Copy, Debug)]
         enum PrintSeparator { Comma, Semicolon, None }
 
-        enum Op { End, Print(&'static [(usize, PrintSeparator)]), Let(usize,usize), Goto(usize), IfCmp(usize,usize,Cmp,usize), For(usize,usize,usize,usize), Next(Option<usize>) }
+        enum Op { End, Print(&'static [(usize, PrintSeparator)]), Input(Option<&'static str>, usize), Let(usize,usize), Goto(usize), IfCmp(usize,usize,Cmp,usize), For(usize,usize,usize,usize), Next(Option<usize>) }
 
         #[derive(Clone)]
         struct LoopState { var: usize, end: usize, step: usize, start_pc: usize }
@@ -147,6 +147,34 @@ pub fn generate_runtime_code(
                         }
 
                         println!("{}", output);
+                    }
+                    pc += 1;
+                }
+                Op::Input(prompt, var_idx) => {
+                    // Display prompt if provided
+                    if let Some(prompt_text) = prompt {
+                        print!("{}", prompt_text);
+                    }
+                    print!("? ");
+                    std::io::Write::flush(&mut std::io::stdout()).unwrap_or(());
+                    
+                    // Read input from stdin
+                    let mut input_line = String::new();
+                    match std::io::stdin().read_line(&mut input_line) {
+                        Ok(_) => {
+                            let input_trimmed = input_line.trim();
+                            
+                            // Try to parse as number first, fall back to string
+                            if let Ok(num) = input_trimmed.parse::<i64>() {
+                                vars[var_idx] = Value::Num(num);
+                            } else {
+                                vars[var_idx] = Value::Str(input_trimmed.to_string());
+                            }
+                        }
+                        Err(_) => {
+                            // On error, set to empty string
+                            vars[var_idx] = Value::Str(String::new());
+                        }
                     }
                     pc += 1;
                 }
@@ -265,6 +293,15 @@ fn generate_bytecode(
                     })
                     .collect();
                 code_ts.push(quote!( Op::Print(&[#(#items),*]) ));
+            }
+            Stmt::Input { prompt, var } => {
+                let var_idx = intern_var(vars, var);
+                let prompt_lit = if let Some(p) = prompt {
+                    quote!(Some(#p))
+                } else {
+                    quote!(None)
+                };
+                code_ts.push(quote!( Op::Input(#prompt_lit, #var_idx) ));
             }
             Stmt::Let(v, e) => {
                 let vi = intern_var(vars, v);

@@ -3,13 +3,25 @@
 All notable changes to this project will be documented in this file.
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- **INPUT statement** for interactive user input with automatic type detection:
+  - `INPUT variable` for simple input prompting with "?"
+  - `INPUT "prompt", variable` for custom prompts
+  - Automatic parsing of numeric vs string input
+  - Seamless integration with existing variables and expressions
+- Added number guessing game example demonstrating binary search algorithm with INPUT/OUTPUT
+- Added comprehensive INPUT test example with various scenarios
+
 ## 0.2.0
 
 [0.2.0]: https://github.com/sunsided/basic-dsl/releases/tag/v0.2.0
 
 ### Added
 
-- Added RustBasic FizzBuzz example demonstrating classic BASIC programming patterns with Rust-themed output.
+- Added RustBasic FitzBuzz example demonstrating classic BASIC programming patterns with Rust-themed output.
 - Enhanced PRINT statement with multiple expression support and authentic BASIC separators:
   - Comma (`,`) separator creates tab stops at 14-character boundaries for columnar output
   - Semicolon (`;`) separator concatenates expressions without spacing

@@ -76,6 +76,10 @@ enum BasicStatement {
         expr: BasicExpr,
     },
     Print(Vec<BasicPrintItem>),
+    Input {
+        prompt: Option<String>,
+        var: String,
+    },
     Goto(i32),
     IfGoto {
         lhs: BasicExpr,
@@ -100,6 +104,7 @@ impl BasicStatement {
             BasicStatement::Print(exprs) => {
                 Stmt::Print(exprs.into_iter().map(|e| e.into_ast()).collect())
             }
+            BasicStatement::Input { prompt, var } => Stmt::Input { prompt, var },
             BasicStatement::Goto(target) => Stmt::Goto(target),
             BasicStatement::IfGoto {
                 lhs,
@@ -174,6 +179,27 @@ impl Parse for BasicStatement {
                 }
 
                 Ok(BasicStatement::Print(print_items))
+            }
+            "INPUT" => {
+                // Parse INPUT statement: INPUT "prompt", var or INPUT var
+                let mut prompt = None;
+                
+                // Check if first token is a string (prompt)
+                if input.peek(syn::LitStr) {
+                    let prompt_lit: syn::LitStr = input.parse()?;
+                    prompt = Some(prompt_lit.value());
+                    
+                    // Expect comma after prompt
+                    input.parse::<Token![,]>()?;
+                }
+                
+                // Parse variable name
+                let var: Ident = input.parse()?;
+                
+                Ok(BasicStatement::Input {
+                    prompt,
+                    var: var.to_string(),
+                })
             }
             "GOTO" => {
                 let target: LitInt = input.parse()?;

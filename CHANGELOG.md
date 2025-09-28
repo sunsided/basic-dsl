@@ -15,7 +15,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added number guessing game example demonstrating binary search algorithm with INPUT/OUTPUT
 - Added comprehensive INPUT test example with various scenarios
 
-## 0.2.0
+## [0.2.0]
 
 [0.2.0]: https://github.com/sunsided/basic-dsl/releases/tag/v0.2.0
 

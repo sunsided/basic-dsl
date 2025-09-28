@@ -3,11 +3,26 @@
 
 //! Abstract Syntax Tree definitions for the BASIC DSL
 
+/// Represents an expression in a PRINT statement with its separator
+#[derive(Clone)]
+pub struct PrintItem {
+    pub expr: Expr,
+    pub separator: PrintSeparator,
+}
+
+/// Type of separator after a PRINT expression
+#[derive(Clone, Copy, Debug)]
+pub enum PrintSeparator {
+    Comma,     // Tab to next column
+    Semicolon, // No spacing
+    None,      // End of PRINT statement
+}
+
 #[derive(Clone)]
 pub enum Stmt {
     Label(i32),
     Let(String, Expr),
-    Print(Vec<Expr>),
+    Print(Vec<PrintItem>),
     Goto(i32),
     IfGoto {
         lhs: Expr,

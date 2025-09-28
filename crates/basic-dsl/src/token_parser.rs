@@ -4,7 +4,7 @@
 //! Token-based parser for the BASIC DSL
 
 use syn::{Result, parse::Parse, parse::ParseStream, Token, Ident, LitInt};
-use crate::ast::{Stmt, Expr, Bin, Cmp};
+use crate::ast::{Stmt, Expr, Bin, Cmp, PrintItem, PrintSeparator};
 
 /// Parses a complete BASIC program from a token stream
 pub fn parse_basic_program_tokens(input: proc_macro2::TokenStream) -> Result<Vec<Stmt>> {
@@ -69,7 +69,7 @@ impl Parse for BasicLine {
 /// Represents a BASIC statement without line number
 enum BasicStatement {
     Let { var: String, expr: BasicExpr },
-    Print(Vec<BasicExpr>),
+    Print(Vec<BasicPrintItem>),
     Goto(i32),
     IfGoto { lhs: BasicExpr, op: Cmp, rhs: BasicExpr, target: i32 },
     For { var: String, start: BasicExpr, end: BasicExpr, step: Option<BasicExpr> },
@@ -113,21 +113,35 @@ impl Parse for BasicStatement {
                 Ok(BasicStatement::Let { var: var.to_string(), expr })
             },
             "PRINT" => {
-                let mut expressions = Vec::new();
+                let mut print_items = Vec::new();
                 
                 // Check if there are any expressions after PRINT
                 if !input.is_empty() {
-                    // Parse first expression
-                    expressions.push(parse_basic_expr_no_comparison(input)?);
-                    
-                    // Parse additional comma-separated expressions
-                    while input.peek(Token![,]) {
-                        input.parse::<Token![,]>()?; // consume comma
-                        expressions.push(parse_basic_expr_no_comparison(input)?);
+                    loop {
+                        // Parse expression
+                        let expr = parse_basic_expr_no_comparison(input)?;
+                        
+                        // Determine separator
+                        let separator = if input.peek(Token![,]) {
+                            input.parse::<Token![,]>()?; // consume comma
+                            PrintSeparator::Comma
+                        } else if input.peek(Token![;]) {
+                            input.parse::<Token![;]>()?; // consume semicolon
+                            PrintSeparator::Semicolon
+                        } else {
+                            PrintSeparator::None
+                        };
+                        
+                        print_items.push(BasicPrintItem { expr, separator });
+                        
+                        // If no separator or end of input, break
+                        if matches!(separator, PrintSeparator::None) || input.is_empty() {
+                            break;
+                        }
                     }
                 }
                 
-                Ok(BasicStatement::Print(expressions))
+                Ok(BasicStatement::Print(print_items))
             },
             "GOTO" => {
                 let target: LitInt = input.parse()?;
@@ -201,6 +215,21 @@ impl Parse for BasicStatement {
 
 /// Wrapper around expressions to handle BASIC-specific parsing
 struct BasicExpr(syn::Expr);
+
+/// Represents a PRINT item with its separator
+struct BasicPrintItem {
+    expr: BasicExpr,
+    separator: PrintSeparator,
+}
+
+impl BasicPrintItem {
+    fn into_ast(self) -> PrintItem {
+        PrintItem {
+            expr: self.expr.into_ast(),
+            separator: self.separator,
+        }
+    }
+}
 
 impl BasicExpr {
     fn into_ast(self) -> Expr {

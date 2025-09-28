@@ -3,10 +3,21 @@
 
 //! Code generation for the BASIC DSL
 
-use crate::ast::{Atom, Bin, Cmp, Expr, Stmt};
-use quote::quote;
+use crate::ast::{Stmt, Expr, Bin, Cmp, Atom, PrintSeparator};
+use quote::{quote, ToTokens};
 use std::collections::BTreeMap;
 use syn::Result;
+
+impl ToTokens for PrintSeparator {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let variant = match self {
+            PrintSeparator::Comma => quote!(PrintSeparator::Comma),
+            PrintSeparator::Semicolon => quote!(PrintSeparator::Semicolon),
+            PrintSeparator::None => quote!(PrintSeparator::None),
+        };
+        tokens.extend(variant);
+    }
+}
 
 pub fn generate_runtime_code(
     stmts: Vec<Stmt>,
@@ -31,7 +42,10 @@ pub fn generate_runtime_code(
 
         enum Atom { Imm(i64), Str(&'static str), Var(usize), Bin(Bin) }
 
-        enum Op { End, Print(&'static [usize]), Let(usize,usize), Goto(usize), IfCmp(usize,usize,Cmp,usize), For(usize,usize,usize,usize), Next(Option<usize>) }
+        #[derive(Clone, Copy, Debug)]
+        enum PrintSeparator { Comma, Semicolon, None }
+
+        enum Op { End, Print(&'static [(usize, PrintSeparator)]), Let(usize,usize), Goto(usize), IfCmp(usize,usize,Cmp,usize), For(usize,usize,usize,usize), Next(Option<usize>) }
 
         #[derive(Clone)]
         struct LoopState { var: usize, end: usize, step: usize, start_pc: usize }
@@ -98,28 +112,37 @@ pub fn generate_runtime_code(
                         // Empty PRINT statement - just print a newline
                         println!();
                     } else {
-                        // Print all expressions with BASIC-style comma formatting (tab stops)
+                        // Print all expressions with appropriate separators
                         let mut output = String::new();
                         let mut column = 0;
                         
-                        for (i, &e) in exprs.iter().enumerate() {
-                            let v = eval(e, &mut vars);
+                        for (i, &(expr_idx, sep)) in exprs.iter().enumerate() {
+                            let v = eval(expr_idx, &mut vars);
                             let text = match v {
                                 Value::Num(n) => n.to_string(),
                                 Value::Str(s) => s,
                             };
                             
-                            if i == 0 {
-                                // First item - just add it
-                                output.push_str(&text);
-                                column += text.len();
-                            } else {
-                                // Subsequent items - tab to next 14-character boundary
-                                let tab_stop = ((column / 14) + 1) * 14;
-                                let spaces_needed = tab_stop - column;
-                                output.push_str(&" ".repeat(spaces_needed));
-                                output.push_str(&text);
-                                column = tab_stop + text.len();
+                            output.push_str(&text);
+                            column += text.len();
+                            
+                            // Apply separator formatting (except for the last item)
+                            if i < exprs.len() - 1 {
+                                match sep {
+                                    PrintSeparator::Comma => {
+                                        // Tab to next 14-character boundary
+                                        let tab_stop = ((column / 14) + 1) * 14;
+                                        let spaces_needed = tab_stop - column;
+                                        output.push_str(&" ".repeat(spaces_needed));
+                                        column = tab_stop;
+                                    },
+                                    PrintSeparator::Semicolon => {
+                                        // No spacing - concatenate directly
+                                    },
+                                    PrintSeparator::None => {
+                                        // No separator (shouldn't happen between items)
+                                    }
+                                }
                             }
                         }
                         
@@ -232,11 +255,15 @@ fn generate_bytecode(
         match s {
             Stmt::Label(_) => {}
             Stmt::End => code_ts.push(quote!(Op::End)),
-            Stmt::Print(exprs) => {
-                let expr_indices: Vec<usize> = exprs.iter()
-                    .map(|e| encode_expr(e, pool, vars))
+            Stmt::Print(print_items) => {
+                let items: Vec<proc_macro2::TokenStream> = print_items.iter()
+                    .map(|item| {
+                        let expr_idx = encode_expr(&item.expr, pool, vars);
+                        let sep = &item.separator;
+                        quote!((#expr_idx, #sep))
+                    })
                     .collect();
-                code_ts.push(quote!( Op::Print(&[#(#expr_indices),*]) ));
+                code_ts.push(quote!( Op::Print(&[#(#items),*]) ));
             }
             Stmt::Let(v, e) => {
                 let vi = intern_var(vars, v);

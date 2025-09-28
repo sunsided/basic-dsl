@@ -17,6 +17,13 @@ fn main() {
         90 LET Y = 24
         100 PRINT "X =", X, "Y =", Y
         110 PRINT "Sum:", X + Y
-        120 END
+        120 PRINT
+        130 PRINT "Semicolon Concatenation:"
+        140 PRINT "Hello"; "World"; "!"
+        150 PRINT "Numbers:"; 1; 2; 3; 4; 5
+        160 PRINT
+        170 PRINT "Mixed Separators:"
+        180 PRINT "A"; "B", "C"; "D", "E"
+        190 END
     }
 }

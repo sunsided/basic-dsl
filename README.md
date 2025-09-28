@@ -17,7 +17,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-basic-dsl = "0.2.0"
+basic-dsl = "0.3.0"
 ```
 
 Then use the macro in your Rust code:

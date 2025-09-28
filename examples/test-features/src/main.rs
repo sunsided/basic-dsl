@@ -5,7 +5,7 @@ use basic_dsl::basic;
 
 fn main() {
     println!("=== Testing All BASIC Features ===");
-    
+
     // Test IF...THEN GOTO and expressions
     basic! {
         10 LET X = 5

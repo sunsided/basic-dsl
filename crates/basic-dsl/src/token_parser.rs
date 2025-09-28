@@ -3,23 +3,23 @@
 
 //! Token-based parser for the BASIC DSL
 
-use syn::{Result, parse::Parse, parse::ParseStream, Token, Ident, LitInt};
-use crate::ast::{Stmt, Expr, Bin, Cmp, PrintItem, PrintSeparator};
+use crate::ast::{Bin, Cmp, Expr, PrintItem, PrintSeparator, Stmt};
+use syn::{Ident, LitInt, Result, Token, parse::Parse, parse::ParseStream};
 
 /// Parses a complete BASIC program from a token stream
 pub fn parse_basic_program_tokens(input: proc_macro2::TokenStream) -> Result<Vec<Stmt>> {
     let lines = split_token_stream_by_lines(input)?;
     let mut statements = Vec::new();
-    
+
     for line_tokens in lines {
         if line_tokens.is_empty() {
             continue; // Skip empty lines
         }
-        
+
         let stmt = syn::parse2::<BasicLine>(line_tokens)?;
         statements.extend(stmt.into_statements());
     }
-    
+
     Ok(statements)
 }
 
@@ -32,15 +32,15 @@ struct BasicLine {
 impl BasicLine {
     fn into_statements(self) -> Vec<Stmt> {
         let mut stmts = Vec::new();
-        
+
         if let Some(line_num) = self.line_number {
             stmts.push(Stmt::Label(line_num));
         }
-        
+
         if let Some(stmt) = self.statement {
             stmts.push(stmt.into_ast());
         }
-        
+
         stmts
     }
 }
@@ -54,25 +54,41 @@ impl Parse for BasicLine {
         } else {
             None
         };
-        
+
         // If there's nothing left after line number, it's just a label
         let statement = if input.is_empty() {
             None
         } else {
             Some(input.parse()?)
         };
-        
-        Ok(BasicLine { line_number, statement })
+
+        Ok(BasicLine {
+            line_number,
+            statement,
+        })
     }
 }
 
 /// Represents a BASIC statement without line number
 enum BasicStatement {
-    Let { var: String, expr: BasicExpr },
+    Let {
+        var: String,
+        expr: BasicExpr,
+    },
     Print(Vec<BasicPrintItem>),
     Goto(i32),
-    IfGoto { lhs: BasicExpr, op: Cmp, rhs: BasicExpr, target: i32 },
-    For { var: String, start: BasicExpr, end: BasicExpr, step: Option<BasicExpr> },
+    IfGoto {
+        lhs: BasicExpr,
+        op: Cmp,
+        rhs: BasicExpr,
+        target: i32,
+    },
+    For {
+        var: String,
+        start: BasicExpr,
+        end: BasicExpr,
+        step: Option<BasicExpr>,
+    },
     Next(Option<String>),
     End,
 }
@@ -81,18 +97,31 @@ impl BasicStatement {
     fn into_ast(self) -> Stmt {
         match self {
             BasicStatement::Let { var, expr } => Stmt::Let(var, expr.into_ast()),
-            BasicStatement::Print(exprs) => Stmt::Print(exprs.into_iter().map(|e| e.into_ast()).collect()),
+            BasicStatement::Print(exprs) => {
+                Stmt::Print(exprs.into_iter().map(|e| e.into_ast()).collect())
+            }
             BasicStatement::Goto(target) => Stmt::Goto(target),
-            BasicStatement::IfGoto { lhs, op, rhs, target } => {
-                Stmt::IfGoto { lhs: lhs.into_ast(), op, rhs: rhs.into_ast(), target }
+            BasicStatement::IfGoto {
+                lhs,
+                op,
+                rhs,
+                target,
+            } => Stmt::IfGoto {
+                lhs: lhs.into_ast(),
+                op,
+                rhs: rhs.into_ast(),
+                target,
             },
-            BasicStatement::For { var, start, end, step } => {
-                Stmt::For { 
-                    var, 
-                    start: start.into_ast(), 
-                    end: end.into_ast(), 
-                    step: step.map(|s| s.into_ast()) 
-                }
+            BasicStatement::For {
+                var,
+                start,
+                end,
+                step,
+            } => Stmt::For {
+                var,
+                start: start.into_ast(),
+                end: end.into_ast(),
+                step: step.map(|s| s.into_ast()),
             },
             BasicStatement::Next(var) => Stmt::Next(var),
             BasicStatement::End => Stmt::End,
@@ -104,23 +133,26 @@ impl Parse for BasicStatement {
     fn parse(input: ParseStream) -> Result<Self> {
         let keyword: Ident = input.parse()?;
         let kw_str = keyword.to_string().to_uppercase();
-        
+
         match kw_str.as_str() {
             "LET" => {
                 let var: Ident = input.parse()?;
                 input.parse::<Token![=]>()?;
                 let expr = input.parse()?;
-                Ok(BasicStatement::Let { var: var.to_string(), expr })
-            },
+                Ok(BasicStatement::Let {
+                    var: var.to_string(),
+                    expr,
+                })
+            }
             "PRINT" => {
                 let mut print_items = Vec::new();
-                
+
                 // Check if there are any expressions after PRINT
                 if !input.is_empty() {
                     loop {
                         // Parse expression
                         let expr = parse_basic_expr_no_comparison(input)?;
-                        
+
                         // Determine separator
                         let separator = if input.peek(Token![,]) {
                             input.parse::<Token![,]>()?; // consume comma
@@ -131,55 +163,57 @@ impl Parse for BasicStatement {
                         } else {
                             PrintSeparator::None
                         };
-                        
+
                         print_items.push(BasicPrintItem { expr, separator });
-                        
+
                         // If no separator or end of input, break
                         if matches!(separator, PrintSeparator::None) || input.is_empty() {
                             break;
                         }
                     }
                 }
-                
+
                 Ok(BasicStatement::Print(print_items))
-            },
+            }
             "GOTO" => {
                 let target: LitInt = input.parse()?;
                 Ok(BasicStatement::Goto(target.base10_parse()?))
-            },
+            }
             "IF" => {
                 let lhs = parse_basic_expr_no_comparison(input)?;
                 let op = parse_comparison_op(input)?;
                 let rhs = parse_basic_expr_no_comparison(input)?;
-                
+
                 let then_keyword: Ident = input.parse()?;
                 if then_keyword.to_string().to_uppercase() != "THEN" {
                     return Err(syn::Error::new(then_keyword.span(), "expected THEN"));
                 }
-                
+
                 let goto_keyword: Ident = input.parse()?;
                 if goto_keyword.to_string().to_uppercase() != "GOTO" {
                     return Err(syn::Error::new(goto_keyword.span(), "expected GOTO"));
                 }
-                
+
                 let target: LitInt = input.parse()?;
-                Ok(BasicStatement::IfGoto { 
-                    lhs, op, rhs, 
-                    target: target.base10_parse()? 
+                Ok(BasicStatement::IfGoto {
+                    lhs,
+                    op,
+                    rhs,
+                    target: target.base10_parse()?,
                 })
-            },
+            }
             "FOR" => {
                 let var: Ident = input.parse()?;
                 input.parse::<Token![=]>()?;
                 let start = input.parse()?;
-                
+
                 let to_keyword: Ident = input.parse()?;
                 if to_keyword.to_string().to_uppercase() != "TO" {
                     return Err(syn::Error::new(to_keyword.span(), "expected TO"));
                 }
-                
+
                 let end = input.parse()?;
-                
+
                 let step = if input.peek(Ident) {
                     let step_keyword: Ident = input.parse()?;
                     if step_keyword.to_string().to_uppercase() == "STEP" {
@@ -190,14 +224,14 @@ impl Parse for BasicStatement {
                 } else {
                     None
                 };
-                
-                Ok(BasicStatement::For { 
-                    var: var.to_string(), 
-                    start, 
-                    end, 
-                    step 
+
+                Ok(BasicStatement::For {
+                    var: var.to_string(),
+                    start,
+                    end,
+                    step,
                 })
-            },
+            }
             "NEXT" => {
                 let var = if input.peek(Ident) {
                     let var_ident: Ident = input.parse()?;
@@ -206,9 +240,12 @@ impl Parse for BasicStatement {
                     None
                 };
                 Ok(BasicStatement::Next(var))
-            },
+            }
             "END" => Ok(BasicStatement::End),
-            _ => Err(syn::Error::new(keyword.span(), format!("unknown statement: {}", kw_str))),
+            _ => Err(syn::Error::new(
+                keyword.span(),
+                format!("unknown statement: {}", kw_str),
+            )),
         }
     }
 }
@@ -250,7 +287,7 @@ fn convert_syn_expr_to_basic(expr: syn::Expr) -> Expr {
             syn::Lit::Int(lit_int) => {
                 // Parse as i64, defaulting to 0 if parsing fails
                 Expr::Num(lit_int.base10_parse().unwrap_or(0))
-            },
+            }
             syn::Lit::Str(lit_str) => Expr::Str(lit_str.value()),
             _ => Expr::Num(0), // Fallback for other literal types
         },
@@ -261,8 +298,10 @@ fn convert_syn_expr_to_basic(expr: syn::Expr) -> Expr {
             } else {
                 Expr::Num(0) // Fallback
             }
-        },
-        syn::Expr::Binary(syn::ExprBinary { left, op, right, .. }) => {
+        }
+        syn::Expr::Binary(syn::ExprBinary {
+            left, op, right, ..
+        }) => {
             let lhs = Box::new(convert_syn_expr_to_basic(*left));
             let rhs = Box::new(convert_syn_expr_to_basic(*right));
             let bin_op = match op {
@@ -272,11 +311,13 @@ fn convert_syn_expr_to_basic(expr: syn::Expr) -> Expr {
                 syn::BinOp::Div(_) => Bin::Div,
                 _ => Bin::Add, // Fallback
             };
-            Expr::Bin { lhs, op: bin_op, rhs }
-        },
-        syn::Expr::Paren(syn::ExprParen { expr, .. }) => {
-            convert_syn_expr_to_basic(*expr)
-        },
+            Expr::Bin {
+                lhs,
+                op: bin_op,
+                rhs,
+            }
+        }
+        syn::Expr::Paren(syn::ExprParen { expr, .. }) => convert_syn_expr_to_basic(*expr),
         _ => Expr::Num(0), // Fallback for unsupported expressions
     }
 }
@@ -290,7 +331,7 @@ fn parse_basic_expr_no_comparison(input: ParseStream) -> Result<BasicExpr> {
 /// Parse additive expressions (+ and -)
 fn parse_basic_additive(input: ParseStream) -> Result<BasicExpr> {
     let mut left = parse_basic_multiplicative(input)?;
-    
+
     while input.peek(Token![+]) || input.peek(Token![-]) {
         let op_token = if input.peek(Token![+]) {
             input.parse::<Token![+]>()?;
@@ -299,7 +340,7 @@ fn parse_basic_additive(input: ParseStream) -> Result<BasicExpr> {
             input.parse::<Token![-]>()?;
             syn::BinOp::Sub(syn::token::Minus::default())
         };
-        
+
         let right = parse_basic_multiplicative(input)?;
         left = BasicExpr(syn::Expr::Binary(syn::ExprBinary {
             attrs: vec![],
@@ -308,14 +349,14 @@ fn parse_basic_additive(input: ParseStream) -> Result<BasicExpr> {
             right: Box::new(right.0),
         }));
     }
-    
+
     Ok(left)
 }
 
 /// Parse multiplicative expressions (* and /)
 fn parse_basic_multiplicative(input: ParseStream) -> Result<BasicExpr> {
     let mut left = parse_basic_primary(input)?;
-    
+
     while input.peek(Token![*]) || input.peek(Token![/]) {
         let op_token = if input.peek(Token![*]) {
             input.parse::<Token![*]>()?;
@@ -324,7 +365,7 @@ fn parse_basic_multiplicative(input: ParseStream) -> Result<BasicExpr> {
             input.parse::<Token![/]>()?;
             syn::BinOp::Div(syn::token::Slash::default())
         };
-        
+
         let right = parse_basic_primary(input)?;
         left = BasicExpr(syn::Expr::Binary(syn::ExprBinary {
             attrs: vec![],
@@ -333,7 +374,7 @@ fn parse_basic_multiplicative(input: ParseStream) -> Result<BasicExpr> {
             right: Box::new(right.0),
         }));
     }
-    
+
     Ok(left)
 }
 
@@ -399,32 +440,33 @@ fn parse_comparison_op(input: ParseStream) -> Result<Cmp> {
 }
 
 /// Split a token stream into lines based on line boundaries
-fn split_token_stream_by_lines(input: proc_macro2::TokenStream) -> Result<Vec<proc_macro2::TokenStream>> {
+fn split_token_stream_by_lines(
+    input: proc_macro2::TokenStream,
+) -> Result<Vec<proc_macro2::TokenStream>> {
     let mut lines = Vec::new();
     let mut current_line = Vec::new();
     let mut current_line_num: Option<usize> = None;
-    
+
     for token in input.into_iter() {
         let token_line = token.span().start().line;
-        
-        if let Some(line_num) = current_line_num {
-            if token_line != line_num {
+
+        if let Some(line_num) = current_line_num
+            && token_line != line_num {
                 // We've moved to a new line, finish current line
                 if !current_line.is_empty() {
                     lines.push(current_line.clone().into_iter().collect());
                     current_line.clear();
                 }
             }
-        }
-        
+
         current_line_num = Some(token_line);
         current_line.push(token);
     }
-    
+
     // Don't forget the last line
     if !current_line.is_empty() {
         lines.push(current_line.into_iter().collect());
     }
-    
+
     Ok(lines)
 }

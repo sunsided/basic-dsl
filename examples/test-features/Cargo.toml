@@ -1,8 +1,10 @@
 [package]
 name = "test-features"
-version = "0.2.0-alpha"
-edition = "2021"
-license = "EUPL-1.2"
+version = "0.2.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
 
 [dependencies]
 basic-dsl = { path = "../../crates/basic-dsl" }

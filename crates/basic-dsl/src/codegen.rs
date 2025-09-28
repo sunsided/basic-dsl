@@ -3,8 +3,8 @@
 
 //! Code generation for the BASIC DSL
 
-use crate::ast::{Stmt, Expr, Bin, Cmp, Atom, PrintSeparator};
-use quote::{quote, ToTokens};
+use crate::ast::{Atom, Bin, Cmp, Expr, PrintSeparator, Stmt};
+use quote::{ToTokens, quote};
 use std::collections::BTreeMap;
 use syn::Result;
 
@@ -115,17 +115,17 @@ pub fn generate_runtime_code(
                         // Print all expressions with appropriate separators
                         let mut output = String::new();
                         let mut column = 0;
-                        
+
                         for (i, &(expr_idx, sep)) in exprs.iter().enumerate() {
                             let v = eval(expr_idx, &mut vars);
                             let text = match v {
                                 Value::Num(n) => n.to_string(),
                                 Value::Str(s) => s,
                             };
-                            
+
                             output.push_str(&text);
                             column += text.len();
-                            
+
                             // Apply separator formatting (except for the last item)
                             if i < exprs.len() - 1 {
                                 match sep {
@@ -145,7 +145,7 @@ pub fn generate_runtime_code(
                                 }
                             }
                         }
-                        
+
                         println!("{}", output);
                     }
                     pc += 1;
@@ -177,17 +177,17 @@ pub fn generate_runtime_code(
                     let start_val = eval(start_e, &mut vars);
                     let end_val = eval(end_e, &mut vars);
                     let step_val = eval(step_e, &mut vars);
-                    
+
                     let (start_num, end_num, step_num) = match (start_val, end_val, step_val) {
                         (Value::Num(s), Value::Num(e), Value::Num(st)) => (s, e, st),
                         _ => panic!("FOR loop bounds must be numbers"),
                     };
-                    
+
                     vars[var] = Value::Num(start_num);
                     loop_stack.push(LoopState {
                         var: var,
                         end: end_num as usize,
-                        step: step_num as usize, 
+                        step: step_num as usize,
                         start_pc: pc + 1,
                     });
                     pc += 1;
@@ -200,16 +200,16 @@ pub fn generate_runtime_code(
                                 panic!("NEXT variable mismatch");
                             }
                         }
-                        
+
                         // Increment loop variable
                         let current_val = match &vars[loop_state.var] {
                             Value::Num(n) => *n,
                             _ => panic!("Loop variable must be numeric"),
                         };
-                        
+
                         let new_val = current_val + loop_state.step as i64;
                         vars[loop_state.var] = Value::Num(new_val);
-                        
+
                         // Check if loop should continue
                         if new_val <= loop_state.end as i64 {
                             pc = loop_state.start_pc; // Jump back to loop body
@@ -256,7 +256,8 @@ fn generate_bytecode(
             Stmt::Label(_) => {}
             Stmt::End => code_ts.push(quote!(Op::End)),
             Stmt::Print(print_items) => {
-                let items: Vec<proc_macro2::TokenStream> = print_items.iter()
+                let items: Vec<proc_macro2::TokenStream> = print_items
+                    .iter()
                     .map(|item| {
                         let expr_idx = encode_expr(&item.expr, pool, vars);
                         let sep = &item.separator;
@@ -299,7 +300,12 @@ fn generate_bytecode(
                 );
                 code_ts.push(quote!( Op::IfCmp(#l, #r, Cmp::#cmp_ident, #to) ));
             }
-            Stmt::For { var, start, end, step } => {
+            Stmt::For {
+                var,
+                start,
+                end,
+                step,
+            } => {
                 let vi = intern_var(vars, var);
                 let start_e = encode_expr(start, pool, vars);
                 let end_e = encode_expr(end, pool, vars);
@@ -318,7 +324,7 @@ fn generate_bytecode(
                     let var_idx = intern_var(vars, v);
                     code_ts.push(quote!( Op::Next(Some(#var_idx)) ));
                 } else {
-                    code_ts.push(quote!( Op::Next(None) ));
+                    code_ts.push(quote!(Op::Next(None)));
                 }
             }
         }

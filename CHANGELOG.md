@@ -5,6 +5,10 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Added
+
+- Added RustBasic FizzBuzz example demonstrating classic BASIC programming patterns with Rust-themed output.
+
 ### Changed
 
 - **BREAKING**: Replaced string-based parsing with direct token parsing for better IDE support and performance. BASIC code is now written directly in the macro body without string quotes.

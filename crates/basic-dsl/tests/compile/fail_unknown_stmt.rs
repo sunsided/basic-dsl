@@ -4,8 +4,8 @@
 use basic_dsl::basic;
 
 fn main() {
-    basic!(r#"
-10 WROTE X = 1   // <- invalid keyword
-20 END
-"#);
+    basic!{
+        10 WROTE X = 1   // <- invalid keyword
+        20 END
+    };
 }

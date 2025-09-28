@@ -4,12 +4,12 @@
 use basic_dsl::basic;
 
 fn main() {
-    basic!(r#"
-10 LET X = 1
-20 PRINT X
-30 IF X < 3 THEN GOTO 50
-40 END
-50 LET X = X + 1
-60 GOTO 20
-"#);
+    basic!{
+        10 LET X = 1
+        20 PRINT X
+        30 IF X < 3 THEN GOTO 50
+        40 END
+        50 LET X = X + 1
+        60 GOTO 20
+    };
 }

@@ -11,13 +11,13 @@ A procedural macro crate that provides a BASIC interpreter DSL embedded in Rust.
 ```rust
 use basic_dsl::basic;
 
-basic!(r#"
+basic! {
     10 FOR I = 1 TO 5
     20 PRINT I
     30 NEXT I
     40 PRINT "DONE"
     50 END
-"#);
+}
 ```
 
 The macro supports classic BASIC programming constructs:
@@ -45,41 +45,27 @@ The macro supports classic BASIC programming constructs:
 
 mod ast;
 mod codegen;
-mod parser;
+mod token_parser;
 
 use proc_macro::TokenStream;
-use syn::{Result, spanned::Spanned};
+use syn::Result;
 
 use crate::codegen::generate_runtime_code;
-use crate::parser::parse_basic_program;
+use crate::token_parser::parse_basic_program_tokens;
 
 /// Main entry point for the BASIC DSL macro.
 ///
-/// Accepts only string literals containing BASIC program code.
+/// Accepts BASIC program code as direct tokens.
 #[proc_macro]
 pub fn basic(input: TokenStream) -> TokenStream {
-    match expand_from_lit(input) {
+    match expand_from_tokens(input) {
         Ok(ts) => ts.into(),
         Err(e) => e.to_compile_error().into(),
     }
 }
 
-fn expand_from_lit(input: TokenStream) -> Result<proc_macro2::TokenStream> {
-    let expr: syn::Expr = syn::parse(input)?;
-
-    let lit = match expr {
-        syn::Expr::Lit(syn::ExprLit {
-            lit: syn::Lit::Str(lit),
-            ..
-        }) => lit,
-        other => return Err(syn::Error::new(other.span(), "expected a string literal")),
-    };
-
-    expand_basic(&lit)
-}
-
-fn expand_basic(src: &syn::LitStr) -> Result<proc_macro2::TokenStream> {
-    let code = src.value();
-    let stmts = parse_basic_program(&code, src)?;
-    generate_runtime_code(stmts, src)
+fn expand_from_tokens(input: TokenStream) -> Result<proc_macro2::TokenStream> {
+    let tokens = proc_macro2::TokenStream::from(input);
+    let stmts = parse_basic_program_tokens(tokens)?;
+    generate_runtime_code(stmts, &syn::LitStr::new("", proc_macro2::Span::call_site()))
 }

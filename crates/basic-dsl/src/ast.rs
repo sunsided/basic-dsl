@@ -45,7 +45,7 @@ pub enum Bin {
     Div,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Cmp {
     Lt,
     Le,

@@ -5,9 +5,7 @@ use basic_dsl::basic;
 
 fn main() {
     println!("=== FOR...NEXT Loop Demo ===");
-    basic!(
-        // language=basic
-        r#"
+    basic! {
         10 PRINT "Count from 1 to 5:"
         20 FOR I = 1 TO 5
         30 PRINT I
@@ -25,6 +23,5 @@ fn main() {
         150 NEXT A
         160 PRINT "DONE"
         170 END
-        "#
-    );
+    }
 }

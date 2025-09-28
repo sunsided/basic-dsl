@@ -1,9 +1,5 @@
-error: unknown statement: 10 WROTE X = 1   // <- invalid keyword
-  --> tests/compile/fail_unknown_stmt.rs:7:12
-   |
- 7 |       basic!(r#"
-   |  ____________^
- 8 | | 10 WROTE X = 1   // <- invalid keyword
- 9 | | 20 END
-10 | | "#);
-   | |__^
+error: unknown statement: WROTE
+ --> tests/compile/fail_unknown_stmt.rs:8:12
+  |
+8 |         10 WROTE X = 1   // <- invalid keyword
+  |            ^^^^^

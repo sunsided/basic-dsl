@@ -3,7 +3,9 @@
 All notable changes to this project will be documented in this file.
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.3.0] - 2025-08-28
+
+[0.3.0]: https://github.com/sunsided/basic-dsl/releases/tag/v0.3.0
 
 ### Added
 
@@ -15,7 +17,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added number guessing game example demonstrating binary search algorithm with INPUT/OUTPUT
 - Added comprehensive INPUT test example with various scenarios
 
-## [0.2.0]
+## [0.2.0] - 2025-08-28
 
 [0.2.0]: https://github.com/sunsided/basic-dsl/releases/tag/v0.2.0
 

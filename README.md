@@ -44,7 +44,7 @@ The DSL supports classic BASIC syntax with modern IDE integration:
 
 ### Statements
 - `LET variable = expression` - Variable assignment
-- `PRINT [expression, ...]` - Output values or strings (supports multiple comma-separated expressions or empty for newline)
+- `PRINT [expression, ...]` - Output values or strings (comma creates tab stops for columnar formatting, or empty for newline)
 - `GOTO label` - Jump to line number
 - `IF condition THEN GOTO label` - Conditional jump  
 - `FOR variable = start TO end [STEP increment]` - Loop initialization
@@ -68,12 +68,11 @@ The DSL supports classic BASIC syntax with modern IDE integration:
 ### Enhanced PRINT Statement
 ```rust
 basic! {
-    10 LET X = 42
-    20 PRINT "The answer is", X
-    30 PRINT "Multiple", "values", 123, "work!"
-    40 PRINT
-    50 PRINT "Empty PRINT above creates newline"
-    60 END
+    10 PRINT "Name", "Age", "Score"    // Tab-separated columns
+    20 PRINT "Alice", 25, 95           // Comma creates tab stops  
+    30 PRINT "Bob", 30, 87             // For columnar output
+    40 PRINT                          // Empty PRINT = newline
+    50 END
 }
 ```
 

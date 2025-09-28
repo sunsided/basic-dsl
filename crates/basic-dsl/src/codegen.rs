@@ -98,15 +98,32 @@ pub fn generate_runtime_code(
                         // Empty PRINT statement - just print a newline
                         println!();
                     } else {
-                        // Print all expressions separated by spaces
-                        let values: Vec<String> = exprs.iter().map(|&e| {
+                        // Print all expressions with BASIC-style comma formatting (tab stops)
+                        let mut output = String::new();
+                        let mut column = 0;
+                        
+                        for (i, &e) in exprs.iter().enumerate() {
                             let v = eval(e, &mut vars);
-                            match v {
+                            let text = match v {
                                 Value::Num(n) => n.to_string(),
                                 Value::Str(s) => s,
+                            };
+                            
+                            if i == 0 {
+                                // First item - just add it
+                                output.push_str(&text);
+                                column += text.len();
+                            } else {
+                                // Subsequent items - tab to next 14-character boundary
+                                let tab_stop = ((column / 14) + 1) * 14;
+                                let spaces_needed = tab_stop - column;
+                                output.push_str(&" ".repeat(spaces_needed));
+                                output.push_str(&text);
+                                column = tab_stop + text.len();
                             }
-                        }).collect();
-                        println!("{}", values.join(" "));
+                        }
+                        
+                        println!("{}", output);
                     }
                     pc += 1;
                 }

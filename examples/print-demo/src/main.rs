@@ -6,14 +6,17 @@ use basic_dsl::basic;
 fn main() {
     println!("=== Enhanced PRINT Statement Demo ===");
     basic! {
-        10 PRINT "Testing multiple expressions:"
-        20 LET X = 42
-        30 LET Y = 24
-        40 PRINT "X =", X, "Y =", Y
-        50 PRINT "Sum:", X + Y
+        10 PRINT "BASIC-Style Comma Formatting:"
+        20 PRINT "Name", "Age", "Score", "Grade"
+        30 PRINT "Alice", 25, 95, "A"
+        40 PRINT "Bob", 30, 87, "B"
+        50 PRINT "Charlie", 28, 92, "A"
         60 PRINT
-        70 PRINT "Empty PRINT above creates a newline"
-        80 PRINT "String", "Number", 123, "Variable", X
-        90 END
+        70 PRINT "Variables work too:"
+        80 LET X = 42
+        90 LET Y = 24
+        100 PRINT "X =", X, "Y =", Y
+        110 PRINT "Sum:", X + Y
+        120 END
     }
 }

@@ -1,6 +1,6 @@
 # BASIC DSL for Rust 🦀
 
-A Rust procedural macro crate that provides a BASIC interpreter embedded as a domain-specific language with direct token parsing for excellent IDE support.
+A Rust procedural macro crate that provides a BASIC interpreter embedded as a domain-specific language with direct token parsing for hypothetical IDE support, for when you need it.
 
 ## Features
 

@@ -4,7 +4,7 @@
 //! Code generation for the BASIC DSL
 
 use crate::ast::{Atom, Bin, Cmp, Expr, PrintSeparator, Stmt};
-use quote::{ToTokens, quote};
+use quote::{ToTokens, quote, format_ident};
 use std::collections::BTreeMap;
 use syn::Result;
 
@@ -466,4 +466,194 @@ fn encode_expr(e: &Expr, pool: &mut Vec<Vec<Atom>>, vars: &mut BTreeMap<String, 
     let ix = pool.len();
     pool.push(v);
     ix
+}
+
+/// Generate direct Rust code from BASIC statements (compiler approach)
+pub fn generate_direct_code(
+    stmts: Vec<Stmt>,
+    _src: &syn::LitStr,
+) -> Result<proc_macro2::TokenStream> {
+    let _labels = build_label_map(&stmts);
+    let mut vars = BTreeMap::<String, usize>::new();
+    
+    // Collect all variables used in the program
+    collect_variables(&stmts, &mut vars);
+    
+    // Generate variable declarations
+    let var_decls = generate_variable_declarations(&vars);
+    
+    // Generate simple sequential statements for now
+    let mut compiled_statements = Vec::new();
+    
+    for stmt in &stmts {
+        match stmt {
+            Stmt::Label(_) => {
+                // Skip labels for now - we'll implement control flow later
+            }
+            Stmt::End => {
+                // Program ends
+                break;
+            }
+            _ => {
+                // Compile other statements
+                if let Ok(compiled) = compile_simple_statement(stmt, &vars) {
+                    compiled_statements.push(compiled);
+                }
+            }
+        }
+    }
+    
+    Ok(quote!({
+        #[allow(unused_variables, unused_assignments, unused_mut)]
+        {
+            #(#var_decls)*
+            #(#compiled_statements)*
+        }
+    }))
+}
+
+/// Collect all variable names used in the program
+fn collect_variables(stmts: &[Stmt], vars: &mut BTreeMap<String, usize>) {
+    for stmt in stmts {
+        match stmt {
+            Stmt::Let(var, expr) => {
+                intern_var(vars, var);
+                collect_vars_from_expr(expr, vars);
+            }
+            Stmt::Print(items) => {
+                for item in items {
+                    collect_vars_from_expr(&item.expr, vars);
+                }
+            }
+            Stmt::Input { var, .. } => {
+                intern_var(vars, var);
+            }
+            Stmt::IfGoto { lhs, rhs, .. } => {
+                collect_vars_from_expr(lhs, vars);
+                collect_vars_from_expr(rhs, vars);
+            }
+            Stmt::For { var, start, end, step } => {
+                intern_var(vars, var);
+                collect_vars_from_expr(start, vars);
+                collect_vars_from_expr(end, vars);
+                if let Some(step_expr) = step {
+                    collect_vars_from_expr(step_expr, vars);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Collect variables from an expression recursively
+fn collect_vars_from_expr(expr: &Expr, vars: &mut BTreeMap<String, usize>) {
+    match expr {
+        Expr::Var(name) => {
+            intern_var(vars, name);
+        }
+        Expr::Bin { lhs, rhs, .. } => {
+            collect_vars_from_expr(lhs, vars);
+            collect_vars_from_expr(rhs, vars);
+        }
+        _ => {}
+    }
+}
+
+/// Generate Rust variable declarations for all BASIC variables
+fn generate_variable_declarations(vars: &BTreeMap<String, usize>) -> Vec<proc_macro2::TokenStream> {
+    let mut decls = Vec::new();
+    
+    for (var_name, _) in vars {
+        let var_ident = format_ident!("var_{}", var_name.to_lowercase());
+        decls.push(quote! {
+            let mut #var_ident: i64 = 0;
+        });
+    }
+    
+    decls
+}
+
+/// Compile a simple BASIC statement to Rust code (without control flow)
+fn compile_simple_statement(
+    stmt: &Stmt,
+    vars: &BTreeMap<String, usize>
+) -> Result<proc_macro2::TokenStream> {
+    match stmt {
+        Stmt::Let(var_name, expr) => {
+            let var_ident = format_ident!("var_{}", var_name.to_lowercase());
+            let expr_code = compile_expression(expr, vars)?;
+            Ok(quote! {
+                #var_ident = #expr_code;
+            })
+        }
+        
+        Stmt::Print(items) => {
+            if items.is_empty() {
+                Ok(quote! { println!(); })
+            } else {
+                // For now, simple implementation - just first expression
+                let expr_code = compile_expression(&items[0].expr, vars)?;
+                Ok(quote! {
+                    println!("{}", #expr_code);
+                })
+            }
+        }
+        
+        Stmt::Input { prompt, var } => {
+            let var_ident = format_ident!("var_{}", var.to_lowercase());
+            let prompt_code = if let Some(p) = prompt {
+                quote! { print!("{}? ", #p); }
+            } else {
+                quote! { print!("? "); }
+            };
+            
+            Ok(quote! {
+                #prompt_code
+                std::io::Write::flush(&mut std::io::stdout()).unwrap_or(());
+                let mut input_line = String::new();
+                if std::io::stdin().read_line(&mut input_line).is_ok() {
+                    if let Ok(num) = input_line.trim().parse::<i64>() {
+                        #var_ident = num;
+                    }
+                }
+            })
+        }
+        
+        // Skip control flow statements for now
+        _ => Err(syn::Error::new(proc_macro2::Span::call_site(), "Control flow not implemented yet"))
+    }
+}
+
+/// Compile a BASIC expression to Rust code
+fn compile_expression(expr: &Expr, vars: &BTreeMap<String, usize>) -> Result<proc_macro2::TokenStream> {
+    match expr {
+        Expr::Num(n) => Ok(quote! { #n }),
+        Expr::Str(s) => Ok(quote! { #s }),
+        Expr::Var(name) => {
+            let var_ident = format_ident!("var_{}", name.to_lowercase());
+            Ok(quote! { #var_ident })
+        }
+        Expr::Bin { lhs, op, rhs } => {
+            let lhs_code = compile_expression(lhs, vars)?;
+            let rhs_code = compile_expression(rhs, vars)?;
+            let op_token = match op {
+                Bin::Add => quote! { + },
+                Bin::Sub => quote! { - },
+                Bin::Mul => quote! { * },
+                Bin::Div => quote! { / },
+            };
+            Ok(quote! { (#lhs_code #op_token #rhs_code) })
+        }
+    }
+}
+
+/// Compile a comparison operator
+fn compile_comparison(op: Cmp) -> proc_macro2::TokenStream {
+    match op {
+        Cmp::Lt => quote! { < },
+        Cmp::Le => quote! { <= },
+        Cmp::Eq => quote! { == },
+        Cmp::Ge => quote! { >= },
+        Cmp::Gt => quote! { > },
+    }
 }

@@ -50,22 +50,39 @@ mod token_parser;
 use proc_macro::TokenStream;
 use syn::Result;
 
-use crate::codegen::generate_runtime_code;
+use crate::codegen::{generate_runtime_code, generate_direct_code};
 use crate::token_parser::parse_basic_program_tokens;
 
-/// Main entry point for the BASIC DSL macro.
+/// Main entry point for the BASIC DSL macro (interpreter mode).
 ///
-/// Accepts BASIC program code as direct tokens.
+/// Accepts BASIC program code as direct tokens and generates an interpreter.
 #[proc_macro]
 pub fn basic(input: TokenStream) -> TokenStream {
-    match expand_from_tokens(input) {
+    match expand_from_tokens_interpreted(input) {
         Ok(ts) => ts.into(),
         Err(e) => e.to_compile_error().into(),
     }
 }
 
-fn expand_from_tokens(input: TokenStream) -> Result<proc_macro2::TokenStream> {
+/// Compile BASIC code directly to Rust (experimental).
+///
+/// Accepts BASIC program code as direct tokens and generates direct Rust code.
+#[proc_macro]
+pub fn basic_compiled(input: TokenStream) -> TokenStream {
+    match expand_from_tokens_compiled(input) {
+        Ok(ts) => ts.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+fn expand_from_tokens_interpreted(input: TokenStream) -> Result<proc_macro2::TokenStream> {
     let tokens = proc_macro2::TokenStream::from(input);
     let stmts = parse_basic_program_tokens(tokens)?;
     generate_runtime_code(stmts, &syn::LitStr::new("", proc_macro2::Span::call_site()))
+}
+
+fn expand_from_tokens_compiled(input: TokenStream) -> Result<proc_macro2::TokenStream> {
+    let tokens = proc_macro2::TokenStream::from(input);
+    let stmts = parse_basic_program_tokens(tokens)?;
+    generate_direct_code(stmts, &syn::LitStr::new("", proc_macro2::Span::call_site()))
 }
